@@ -48,11 +48,45 @@ jobs:
       run: |
         cd ios
         WORKSPACE=$(find . -name "*.xcworkspace" -maxdepth 1 | head -1)
-        SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | grep -A 1 "Schemes:" | tail -1 | xargs)
+        echo "Found workspace: $WORKSPACE"
+        
+        # List all schemes
+        echo "=== All schemes ==="
+        xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null || true
+        
+        # Find app scheme (exclude Pods schemes)
+        SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | \
+          grep -A 20 "Schemes:" | \
+          grep -v "Pods\|boost\|^--" | \
+          grep -v "^$" | \
+          head -1 | \
+          xargs)
+        
+        # If no scheme found, try to get from app.json or use default
+        if [ -z "$SCHEME" ]; then
+          echo "⚠️ No app scheme found, trying to find from project"
+          # Try to find scheme from .xcodeproj
+          PROJECT=$(find . -name "*.xcodeproj" -maxdepth 1 | head -1)
+          if [ -n "$PROJECT" ]; then
+            SCHEME=$(xcodebuild -list -project "$PROJECT" 2>/dev/null | \
+              grep -A 20 "Schemes:" | \
+              grep -v "Pods\|boost\|^--" | \
+              grep -v "^$" | \
+              head -1 | \
+              xargs)
+          fi
+        fi
+        
+        # Fallback: use slug from app.json or default
+        if [ -z "$SCHEME" ]; then
+          SLUG=$(grep -o '"slug": "[^"]*"' ../app.json | cut -d'"' -f4 || echo "expense-manager")
+          SCHEME="$SLUG"
+          echo "⚠️ Using slug as scheme: $SCHEME"
+        fi
+        
         echo "workspace=$WORKSPACE" >> $GITHUB_OUTPUT
         echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
-        echo "Found workspace: $WORKSPACE"
-        echo "Found scheme: $SCHEME"
+        echo "✅ Using scheme: $SCHEME"
     
     - name: Build .app with Xcode
       run: |
@@ -65,10 +99,12 @@ jobs:
         # Create build directory
         mkdir -p build
         
-        # Build .app directly (not archive)
+        # Build .app for iOS device (not simulator, not Mac Catalyst)
         xcodebuild -workspace "$WORKSPACE" \
           -scheme "$SCHEME" \
           -configuration Release \
+          -sdk iphoneos \
+          -destination "generic/platform=iOS" \
           -derivedDataPath $PWD/build/DerivedData \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
@@ -76,21 +112,21 @@ jobs:
           build
         
         echo "=== Build output ==="
-        find $PWD/build/DerivedData -name "*.app" -type d | head -5
+        find $PWD/build/DerivedData -name "*.app" -type d | head -10
         
-        # Find the .app file
-        APP_PATH=$(find $PWD/build/DerivedData -name "*.app" -type d | head -1)
+        # Find the .app file (prefer Release-iphoneos)
+        APP_PATH=$(find $PWD/build/DerivedData -path "*/Release-iphoneos/*.app" -type d | head -1)
         
         if [ -z "$APP_PATH" ]; then
-          echo "⚠️ .app not found in DerivedData, searching everywhere:"
-          find $PWD/build -name "*.app" -type d
-          APP_PATH=$(find $PWD/build -name "*.app" -type d | head -1)
+          echo "⚠️ .app not found in Release-iphoneos, searching everywhere:"
+          find $PWD/build/DerivedData -name "*.app" -type d | head -10
+          APP_PATH=$(find $PWD/build/DerivedData -name "*.app" -type d | grep -v "Simulator\|maccatalyst" | head -1)
         fi
         
         if [ -z "$APP_PATH" ]; then
           echo "❌ Could not find .app after build"
           echo "Build directory contents:"
-          find $PWD/build -type f -o -type d | head -30
+          find $PWD/build/DerivedData -type d -name "*.app" | head -20
           exit 1
         fi
         
