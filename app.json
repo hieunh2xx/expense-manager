@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Quản Lý Chi Tiêu",
+    "slug": "expense-manager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.expensemanager.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ứng dụng cần truy cập camera để chụp ảnh hóa đơn và bưu phẩm.",
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh hóa đơn."
+      }
+    },
+    "android": {
+      "package": "com.expensemanager.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Ứng dụng cần truy cập camera để chụp ảnh hóa đơn."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photoPermission": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh hóa đơn."
+        }
+      ],
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermission": "Ứng dụng cần truy cập camera để quét mã QR."
+        }
+      ]
+    ]
+  }
+}
+
+
