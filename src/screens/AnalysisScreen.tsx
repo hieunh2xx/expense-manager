@@ -25,12 +25,15 @@ export default function AnalysisScreen() {
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
 
   useEffect(() => {
-    loadData();
+    loadData().catch(error => {
+      console.error('Error loading analysis data:', error);
+    });
   }, [timePeriod]);
 
   const loadData = async () => {
-    const txs = await getTransactions();
-    setTransactions(txs);
+    try {
+      const txs = await getTransactions();
+      setTransactions(txs);
 
     // Calculate spending trend
     const now = new Date();
@@ -80,6 +83,13 @@ export default function AnalysisScreen() {
       .slice(0, 3);
 
     setTopCategories(top);
+    } catch (error) {
+      console.error('Error loading analysis data:', error);
+      // Set default values on error
+      setTransactions([]);
+      setSpendingTrend([]);
+      setTopCategories([]);
+    }
   };
 
   const chartConfig = {

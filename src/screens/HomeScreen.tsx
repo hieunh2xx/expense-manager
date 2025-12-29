@@ -25,18 +25,27 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadData().catch(error => {
+      console.error('Error loading data:', error);
+    });
   }, []);
 
   const loadData = async () => {
-    const [txs, bal] = await Promise.all([
-      getTransactions(),
-      getBalance(),
-    ]);
-    // Sort by date, newest first
-    const sorted = txs.sort((a, b) => b.date.getTime() - a.date.getTime());
-    setTransactions(sorted.slice(0, 10)); // Show last 10
-    setBalance(bal);
+    try {
+      const [txs, bal] = await Promise.all([
+        getTransactions(),
+        getBalance(),
+      ]);
+      // Sort by date, newest first
+      const sorted = txs.sort((a, b) => b.date.getTime() - a.date.getTime());
+      setTransactions(sorted.slice(0, 10)); // Show last 10
+      setBalance(bal);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      // Set default values on error
+      setTransactions([]);
+      setBalance({ total: 0, income: 0, expense: 0 });
+    }
   };
 
   const onRefresh = async () => {
