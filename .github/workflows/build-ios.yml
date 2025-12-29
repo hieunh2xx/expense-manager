@@ -48,47 +48,65 @@ jobs:
       run: |
         cd ios
         WORKSPACE=$(find . -name "*.xcworkspace" -maxdepth 1 | head -1)
+        WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
         echo "Found workspace: $WORKSPACE"
+        echo "Workspace name: $WORKSPACE_NAME"
         
-        # List all schemes and parse correctly
+        # List all schemes
         echo "=== All schemes ==="
         SCHEMES_OUTPUT=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null || xcodebuild -list -workspace "$WORKSPACE")
         echo "$SCHEMES_OUTPUT"
         
-        # Parse schemes (get lines after "Schemes:" but before next section)
-        SCHEME=$(echo "$SCHEMES_OUTPUT" | \
-          awk '/^[[:space:]]*Schemes:/{flag=1; next} /^[[:space:]]*[A-Z]/{flag=0} flag && /^[[:space:]]+[^[:space:]]/ && !/Pods/ && !/boost/ {print $1; exit}' | \
-          xargs)
+        # Extract all scheme names (lines after "Schemes:" until next uppercase section)
+        ALL_SCHEMES=$(echo "$SCHEMES_OUTPUT" | \
+          awk '/^[[:space:]]*Schemes:/{flag=1; next} /^[[:space:]]*[A-Z][a-zA-Z]*:/{flag=0} flag && /^[[:space:]]+[^[:space:]]/ {print $1}' | \
+          sed 's/^[[:space:]]*//' | \
+          grep -v "^$")
         
-        # Alternative parsing method
+        echo "=== All scheme names ==="
+        echo "$ALL_SCHEMES"
+        
+        # Filter out Pods schemes (DoubleConversion, boost, Pods-*, etc.)
+        # Keep only app schemes (usually matches workspace name or project name)
+        APP_SCHEMES=$(echo "$ALL_SCHEMES" | \
+          grep -v "^Pods" | \
+          grep -v "^boost$" | \
+          grep -v "^DoubleConversion$" | \
+          grep -v "^Flipper" | \
+          grep -v "^React" | \
+          grep -v "^RCT" | \
+          grep -v "^Yoga" | \
+          grep -v "^glog" | \
+          grep -v "^fmt$" | \
+          grep -v "^libevent" | \
+          grep -v "^OpenSSL" | \
+          grep -v "^cxxreact" | \
+          grep -v "^jsc" | \
+          grep -v "^jsinspector" | \
+          grep -v "^jsireact" | \
+          grep -v "^hermes" | \
+          grep -v "^folly" | \
+          grep -v "^cocoa-keys" | \
+          grep -v "^ExpoModulesCore" | \
+          grep -v "^EX" | \
+          grep -v "^.*-Tests$" | \
+          grep -v "^.*-test$")
+        
+        echo "=== Filtered app schemes ==="
+        echo "$APP_SCHEMES"
+        
+        # Try to find scheme matching workspace name first
+        SCHEME=$(echo "$APP_SCHEMES" | grep -i "^${WORKSPACE_NAME}$" | head -1)
+        
+        # If not found, try to find any app scheme
         if [ -z "$SCHEME" ]; then
-          SCHEME=$(echo "$SCHEMES_OUTPUT" | \
-            sed -n '/Schemes:/,/^[[:space:]]*[A-Z]/p' | \
-            grep -v "Schemes:" | \
-            grep -v "^[[:space:]]*$" | \
-            grep -v "Pods\|boost" | \
-            head -1 | \
-            sed 's/^[[:space:]]*//' | \
-            cut -d' ' -f1)
+          SCHEME=$(echo "$APP_SCHEMES" | head -1)
         fi
         
-        # If still no scheme, try to find from .xcodeproj
-        if [ -z "$SCHEME" ] || [ "$SCHEME" = "Schemes:" ]; then
-          echo "⚠️ No app scheme found, trying to find from project"
-          PROJECT=$(find . -name "*.xcodeproj" -maxdepth 1 | head -1)
-          if [ -n "$PROJECT" ]; then
-            PROJECT_SCHEMES=$(xcodebuild -list -project "$PROJECT" 2>/dev/null || true)
-            SCHEME=$(echo "$PROJECT_SCHEMES" | \
-              awk '/^[[:space:]]*Schemes:/{flag=1; next} /^[[:space:]]*[A-Z]/{flag=0} flag && /^[[:space:]]+[^[:space:]]/ && !/Pods/ && !/boost/ {print $1; exit}' | \
-              xargs)
-          fi
-        fi
-        
-        # Fallback: use workspace name or slug from app.json
-        if [ -z "$SCHEME" ] || [ "$SCHEME" = "Schemes:" ]; then
-          WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
+        # If still no scheme, use workspace name as fallback
+        if [ -z "$SCHEME" ]; then
           SCHEME="$WORKSPACE_NAME"
-          echo "⚠️ Using workspace name as scheme: $SCHEME"
+          echo "⚠️ No app scheme found, using workspace name: $SCHEME"
         fi
         
         echo "workspace=$WORKSPACE" >> $GITHUB_OUTPUT
