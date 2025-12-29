@@ -50,38 +50,45 @@ jobs:
         WORKSPACE=$(find . -name "*.xcworkspace" -maxdepth 1 | head -1)
         echo "Found workspace: $WORKSPACE"
         
-        # List all schemes
+        # List all schemes and parse correctly
         echo "=== All schemes ==="
-        xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null || true
+        SCHEMES_OUTPUT=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null || xcodebuild -list -workspace "$WORKSPACE")
+        echo "$SCHEMES_OUTPUT"
         
-        # Find app scheme (exclude Pods schemes)
-        SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | \
-          grep -A 20 "Schemes:" | \
-          grep -v "Pods\|boost\|^--" | \
-          grep -v "^$" | \
-          head -1 | \
+        # Parse schemes (get lines after "Schemes:" but before next section)
+        SCHEME=$(echo "$SCHEMES_OUTPUT" | \
+          awk '/^[[:space:]]*Schemes:/{flag=1; next} /^[[:space:]]*[A-Z]/{flag=0} flag && /^[[:space:]]+[^[:space:]]/ && !/Pods/ && !/boost/ {print $1; exit}' | \
           xargs)
         
-        # If no scheme found, try to get from app.json or use default
+        # Alternative parsing method
         if [ -z "$SCHEME" ]; then
+          SCHEME=$(echo "$SCHEMES_OUTPUT" | \
+            sed -n '/Schemes:/,/^[[:space:]]*[A-Z]/p' | \
+            grep -v "Schemes:" | \
+            grep -v "^[[:space:]]*$" | \
+            grep -v "Pods\|boost" | \
+            head -1 | \
+            sed 's/^[[:space:]]*//' | \
+            cut -d' ' -f1)
+        fi
+        
+        # If still no scheme, try to find from .xcodeproj
+        if [ -z "$SCHEME" ] || [ "$SCHEME" = "Schemes:" ]; then
           echo "⚠️ No app scheme found, trying to find from project"
-          # Try to find scheme from .xcodeproj
           PROJECT=$(find . -name "*.xcodeproj" -maxdepth 1 | head -1)
           if [ -n "$PROJECT" ]; then
-            SCHEME=$(xcodebuild -list -project "$PROJECT" 2>/dev/null | \
-              grep -A 20 "Schemes:" | \
-              grep -v "Pods\|boost\|^--" | \
-              grep -v "^$" | \
-              head -1 | \
+            PROJECT_SCHEMES=$(xcodebuild -list -project "$PROJECT" 2>/dev/null || true)
+            SCHEME=$(echo "$PROJECT_SCHEMES" | \
+              awk '/^[[:space:]]*Schemes:/{flag=1; next} /^[[:space:]]*[A-Z]/{flag=0} flag && /^[[:space:]]+[^[:space:]]/ && !/Pods/ && !/boost/ {print $1; exit}' | \
               xargs)
           fi
         fi
         
-        # Fallback: use slug from app.json or default
-        if [ -z "$SCHEME" ]; then
-          SLUG=$(grep -o '"slug": "[^"]*"' ../app.json | cut -d'"' -f4 || echo "expense-manager")
-          SCHEME="$SLUG"
-          echo "⚠️ Using slug as scheme: $SCHEME"
+        # Fallback: use workspace name or slug from app.json
+        if [ -z "$SCHEME" ] || [ "$SCHEME" = "Schemes:" ]; then
+          WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
+          SCHEME="$WORKSPACE_NAME"
+          echo "⚠️ Using workspace name as scheme: $SCHEME"
         fi
         
         echo "workspace=$WORKSPACE" >> $GITHUB_OUTPUT
