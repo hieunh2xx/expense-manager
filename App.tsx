@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -90,16 +91,34 @@ function TabNavigator() {
 }
 
 export default function App() {
-  return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <NavigationContainer>
-          <StatusBar style="auto" />
-          <TabNavigator />
-        </NavigationContainer>
-      </ThemeProvider>
-    </ErrorBoundary>
-  );
+  // Wrap everything in try-catch to prevent crashes
+  try {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider>
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <TabNavigator />
+          </NavigationContainer>
+        </ThemeProvider>
+      </ErrorBoundary>
+    );
+  } catch (error) {
+    console.error('App initialization error:', error);
+    // Return a simple error screen if initialization fails
+    return (
+      <ErrorBoundary>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>
+            Lỗi khởi động ứng dụng
+          </Text>
+          <Text style={{ fontSize: 14, textAlign: 'center', color: '#666' }}>
+            Vui lòng khởi động lại ứng dụng
+          </Text>
+        </View>
+      </ErrorBoundary>
+    );
+  }
 }
 
 
