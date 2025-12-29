@@ -18,8 +18,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.expensemanager.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Ứng dụng cần truy cập camera để chụp ảnh hóa đơn và bưu phẩm.",
-        "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh hóa đơn."
+        "NSCameraUsageDescription": "Ứng dụng cần truy cập camera để quét mã QR.",
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh hóa đơn.",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -30,9 +32,10 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -57,8 +60,11 @@
           "cameraPermission": "Ứng dụng cần truy cập camera để quét mã QR."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "dd3976f7-fdd5-4619-ab8b-cae6e769e551"
+      }
+    }
   }
 }
-
-

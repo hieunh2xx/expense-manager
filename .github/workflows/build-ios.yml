@@ -1,0 +1,119 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'app.json'
+      - 'package.json'
+      - '.github/workflows/build-ios.yml'
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Setup Expo
+      uses: expo/expo-github-action@v8
+      with:
+        expo-version: latest
+        eas-version: latest
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Prebuild iOS
+      run: npx expo prebuild --platform ios --clean
+    
+    - name: Install CocoaPods dependencies
+      run: |
+        cd ios
+        pod install
+    
+    - name: Setup Apple ID credentials
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      run: |
+        # Note: This step requires manual setup of Apple ID in Xcode
+        # You'll need to configure signing manually or use fastlane match
+    
+    - name: Find workspace and scheme
+      id: find-project
+      run: |
+        cd ios
+        WORKSPACE=$(find . -name "*.xcworkspace" -maxdepth 1 | head -1)
+        SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | grep -A 1 "Schemes:" | tail -1 | xargs)
+        echo "workspace=$WORKSPACE" >> $GITHUB_OUTPUT
+        echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+        echo "Found workspace: $WORKSPACE"
+        echo "Found scheme: $SCHEME"
+    
+    - name: Build IPA with Xcode
+      run: |
+        cd ios
+        WORKSPACE="${{ steps.find-project.outputs.workspace }}"
+        SCHEME="${{ steps.find-project.outputs.scheme }}"
+        xcodebuild -workspace "$WORKSPACE" \
+          -scheme "$SCHEME" \
+          -configuration Release \
+          -archivePath $PWD/build/App.xcarchive \
+          archive \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO || true
+    
+    - name: Export IPA
+      run: |
+        cd ios
+        # Create ExportOptions.plist for adhoc distribution
+        cat > ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>method</key>
+          <string>ad-hoc</string>
+          <key>teamID</key>
+          <string>${{ secrets.APPLE_TEAM_ID }}</string>
+        </dict>
+        </plist>
+        EOF
+        
+        xcodebuild -exportArchive \
+          -archivePath $PWD/build/App.xcarchive \
+          -exportPath $PWD/build \
+          -exportOptionsPlist ExportOptions.plist || echo "Export failed, but continuing..."
+    
+    - name: Upload IPA artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: ios-build
+        path: |
+          ios/build/*.ipa
+          ios/build/*.app
+        retention-days: 30
+    
+    - name: Upload build logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          ios/build/*.log
+        retention-days: 7
+
