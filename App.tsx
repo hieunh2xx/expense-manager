@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import HomeScreen from './src/screens/HomeScreen';
 import AddTransactionScreen from './src/screens/AddTransactionScreen';
@@ -90,12 +91,14 @@ function TabNavigator() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <NavigationContainer>
-        <StatusBar style="auto" />
-        <TabNavigator />
-      </NavigationContainer>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <NavigationContainer>
+          <StatusBar style="auto" />
+          <TabNavigator />
+        </NavigationContainer>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

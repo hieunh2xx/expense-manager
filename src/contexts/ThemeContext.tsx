@@ -71,7 +71,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'auto'>('auto');
 
   useEffect(() => {
-    loadThemePreference();
+    // Delay loading to ensure AsyncStorage is ready
+    const timer = setTimeout(() => {
+      loadThemePreference();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const loadThemePreference = async () => {
@@ -82,6 +86,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } catch (error) {
       console.error('Error loading theme preference:', error);
+      // Set default theme if error occurs
+      setThemeModeState('auto');
     }
   };
 
