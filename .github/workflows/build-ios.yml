@@ -59,6 +59,13 @@ jobs:
         cd ios
         WORKSPACE="${{ steps.find-project.outputs.workspace }}"
         SCHEME="${{ steps.find-project.outputs.scheme }}"
+        echo "Building with workspace: $WORKSPACE"
+        echo "Scheme: $SCHEME"
+        
+        # Create build directory
+        mkdir -p build
+        
+        # Build archive
         xcodebuild -workspace "$WORKSPACE" \
           -scheme "$SCHEME" \
           -configuration Release \
@@ -66,29 +73,63 @@ jobs:
           archive \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO || true
+          CODE_SIGNING_ALLOWED=NO
+        
+        # Check if archive was created
+        if [ -d "$PWD/build/App.xcarchive" ]; then
+          echo "✅ Archive created successfully"
+          ls -la $PWD/build/
+        else
+          echo "❌ Archive not found"
+          exit 1
+        fi
     
     - name: Export IPA
       run: |
         cd ios
-        # Create ExportOptions.plist for adhoc distribution
+        # Create ExportOptions.plist for development distribution (no signing required)
         cat > ExportOptions.plist << EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
           <key>method</key>
-          <string>ad-hoc</string>
-          <key>teamID</key>
-          <string>${{ secrets.APPLE_TEAM_ID }}</string>
+          <string>development</string>
+          <key>signingStyle</key>
+          <string>manual</string>
         </dict>
         </plist>
         EOF
         
+        # Export IPA
         xcodebuild -exportArchive \
           -archivePath $PWD/build/App.xcarchive \
           -exportPath $PWD/build \
-          -exportOptionsPlist ExportOptions.plist || echo "Export failed, but continuing..."
+          -exportOptionsPlist ExportOptions.plist
+        
+        # List files in build directory
+        echo "Files in build directory:"
+        find $PWD/build -type f -name "*.ipa" -o -name "*.app" | head -20
+        
+        # Check if IPA was created
+        IPA_FILE=$(find $PWD/build -name "*.ipa" | head -1)
+        if [ -n "$IPA_FILE" ]; then
+          echo "✅ IPA found: $IPA_FILE"
+          ls -lh "$IPA_FILE"
+        else
+          echo "⚠️ IPA not found, checking for .app"
+          APP_FILE=$(find $PWD/build -name "*.app" -type d | head -1)
+          if [ -n "$APP_FILE" ]; then
+            echo "✅ App found: $APP_FILE"
+            # Create IPA from .app
+            cd "$(dirname "$APP_FILE")"
+            zip -r "$(basename "$APP_FILE" .app).ipa" "$(basename "$APP_FILE")"
+            echo "✅ Created IPA from .app"
+          else
+            echo "❌ No IPA or .app found"
+            exit 1
+          fi
+        fi
     
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
@@ -96,8 +137,9 @@ jobs:
       with:
         name: ios-build
         path: |
-          ios/build/*.ipa
-          ios/build/*.app
+          ios/build/**/*.ipa
+          ios/build/**/*.app
+        if-no-files-found: warn
         retention-days: 30
     
     - name: Upload build logs
