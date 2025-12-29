@@ -69,14 +69,11 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'auto'>('auto');
-  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     // Delay loading to ensure AsyncStorage is ready
     const timer = setTimeout(() => {
-      loadThemePreference().finally(() => {
-        setIsReady(true);
-      });
+      loadThemePreference();
     }, 100);
     return () => clearTimeout(timer);
   }, []);
@@ -94,11 +91,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Don't render children until theme is ready
-  if (!isReady) {
-    return null; // or a loading screen
-  }
-
   const setThemeMode = async (mode: 'light' | 'dark' | 'auto') => {
     try {
       await AsyncStorage.setItem('themeMode', mode);
@@ -114,10 +106,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const getTheme = (): Theme => {
-    if (themeMode === 'auto') {
-      return systemColorScheme === 'dark' ? darkTheme : lightTheme;
+    try {
+      if (themeMode === 'auto') {
+        return systemColorScheme === 'dark' ? darkTheme : lightTheme;
+      }
+      return themeMode === 'dark' ? darkTheme : lightTheme;
+    } catch (error) {
+      console.error('Error getting theme:', error);
+      // Return default light theme if error
+      return lightTheme;
     }
-    return themeMode === 'dark' ? darkTheme : lightTheme;
   };
 
   const theme = getTheme();
