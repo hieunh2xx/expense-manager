@@ -62,7 +62,7 @@ export default function AddTransactionScreen() {
           setDescription(result.items.join(', '));
         }
         if (result.merchant) {
-          setDescription(prev => prev ? `${result.merchant} - ${prev}` : result.merchant);
+          setDescription(prev => prev ? `${result.merchant} - ${prev}` : result.merchant || '');
         }
         Alert.alert('Thành công', 'Đã quét mã QR thành công!');
       } else {
@@ -103,7 +103,7 @@ export default function AddTransactionScreen() {
           setDescription(ocrResult.items.join(', '));
         }
         if (ocrResult.merchant) {
-          setDescription(prev => prev ? `${ocrResult.merchant} - ${prev}` : ocrResult.merchant);
+          setDescription(prev => prev ? `${ocrResult.merchant} - ${prev}` : (ocrResult.merchant || ''));
         }
         
         Alert.alert('Thành công', 'Đã nhận diện thông tin từ ảnh!');
@@ -143,7 +143,7 @@ export default function AddTransactionScreen() {
           setDescription(ocrResult.items.join(', '));
         }
         if (ocrResult.merchant) {
-          setDescription(prev => prev ? `${ocrResult.merchant} - ${prev}` : ocrResult.merchant);
+          setDescription(prev => prev ? `${ocrResult.merchant} - ${prev}` : (ocrResult.merchant || ''));
         }
         
         Alert.alert('Thành công', 'Đã nhận diện thông tin từ ảnh!');
@@ -538,7 +538,7 @@ export default function AddTransactionScreen() {
             <Text
               style={[
                 styles.categoryText,
-                selectedCategory && { color: theme.colors.text },
+                selectedCategory ? { color: theme.colors.text } : undefined,
               ]}
             >
               {selectedCategory

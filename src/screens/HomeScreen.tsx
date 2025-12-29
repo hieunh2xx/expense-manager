@@ -16,10 +16,16 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import BalanceCard from '../components/BalanceCard';
 import TransactionItem from '../components/TransactionItem';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  HomeMain: undefined;
+  TransactionDetail: { transaction: Transaction };
+};
 
 export default function HomeScreen() {
   const { theme } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balance, setBalance] = useState<Balance>({ total: 0, income: 0, expense: 0 });
   const [refreshing, setRefreshing] = useState(false);
@@ -158,7 +164,7 @@ export default function HomeScreen() {
               <TransactionItem
                 key={transaction.id}
                 transaction={transaction}
-                onPress={() => navigation.navigate('TransactionDetail' as never, { transaction } as never)}
+                onPress={() => navigation.navigate('TransactionDetail', { transaction })}
               />
             ))
           ) : (
