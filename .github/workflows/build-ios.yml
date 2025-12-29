@@ -54,7 +54,7 @@ jobs:
         echo "Found workspace: $WORKSPACE"
         echo "Found scheme: $SCHEME"
     
-    - name: Build IPA with Xcode
+    - name: Build .app with Xcode
       run: |
         cd ios
         WORKSPACE="${{ steps.find-project.outputs.workspace }}"
@@ -65,76 +65,64 @@ jobs:
         # Create build directory
         mkdir -p build
         
-        # Build archive
+        # Build .app directly (not archive)
         xcodebuild -workspace "$WORKSPACE" \
           -scheme "$SCHEME" \
           -configuration Release \
-          -archivePath $PWD/build/App.xcarchive \
-          archive \
+          -derivedDataPath $PWD/build/DerivedData \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_ALLOWED=NO \
+          build
         
-        # Check if archive was created
-        if [ -d "$PWD/build/App.xcarchive" ]; then
-          echo "✅ Archive created successfully"
-          ls -la $PWD/build/
-        else
-          echo "❌ Archive not found"
-          exit 1
-        fi
-    
-    - name: Create IPA from Archive
-      run: |
-        cd ios
-        ARCHIVE_PATH="$PWD/build/App.xcarchive"
+        echo "=== Build output ==="
+        find $PWD/build/DerivedData -name "*.app" -type d | head -5
         
-        if [ ! -d "$ARCHIVE_PATH" ]; then
-          echo "❌ Archive not found at: $ARCHIVE_PATH"
-          exit 1
-        fi
-        
-        echo "✅ Archive found: $ARCHIVE_PATH"
-        echo "=== Archive structure ==="
-        ls -la "$ARCHIVE_PATH"
-        
-        # Find .app anywhere in archive
-        echo "=== Searching for .app ==="
-        APP_PATH=$(find "$ARCHIVE_PATH" -name "*.app" -type d | head -1)
+        # Find the .app file
+        APP_PATH=$(find $PWD/build/DerivedData -name "*.app" -type d | head -1)
         
         if [ -z "$APP_PATH" ]; then
-          echo "⚠️ No .app found, listing archive contents:"
-          find "$ARCHIVE_PATH" -type d | head -20
-          find "$ARCHIVE_PATH" -type f | head -20
-          
-          # Try alternative: look for .app in Products
-          if [ -d "$ARCHIVE_PATH/Products" ]; then
-            echo "=== Checking Products directory ==="
-            find "$ARCHIVE_PATH/Products" -type d -name "*.app" | head -5
-            APP_PATH=$(find "$ARCHIVE_PATH/Products" -name "*.app" -type d | head -1)
-          fi
+          echo "⚠️ .app not found in DerivedData, searching everywhere:"
+          find $PWD/build -name "*.app" -type d
+          APP_PATH=$(find $PWD/build -name "*.app" -type d | head -1)
         fi
         
         if [ -z "$APP_PATH" ]; then
-          echo "❌ Could not find .app in archive"
+          echo "❌ Could not find .app after build"
+          echo "Build directory contents:"
+          find $PWD/build -type f -o -type d | head -30
           exit 1
         fi
         
         echo "✅ App found: $APP_PATH"
         ls -ld "$APP_PATH"
         
-        # Create Payload directory and copy .app
-        mkdir -p $PWD/build/Payload
-        cp -R "$APP_PATH" $PWD/build/Payload/
+        # Copy .app to build directory for easier access
+        cp -R "$APP_PATH" $PWD/build/app.app
+        echo "✅ App copied to: $PWD/build/app.app"
+    
+    - name: Create IPA from .app
+      run: |
+        cd ios/build
         
-        # Create IPA from Payload
-        cd $PWD/build
+        if [ ! -d "app.app" ]; then
+          echo "❌ app.app not found"
+          exit 1
+        fi
+        
+        echo "✅ Creating IPA from app.app"
+        
+        # Create Payload directory
+        mkdir -p Payload
+        cp -R app.app Payload/
+        
+        # Create IPA
         zip -r "app.ipa" Payload
         rm -rf Payload
         
-        echo "✅ IPA created: $PWD/build/app.ipa"
-        ls -lh $PWD/build/app.ipa
-        file $PWD/build/app.ipa
+        echo "✅ IPA created: app.ipa"
+        ls -lh app.ipa
+        file app.ipa
     
     - name: List build artifacts
       run: |
